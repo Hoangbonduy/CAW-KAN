@@ -22,7 +22,7 @@ python -u run.py \
     --data weather\
     --root_path ./dataset/weather/ \
     --data_path weather.csv \
-    --freq 10min \
+    --freq t \
   --features M \
   --target OT \
   --seq_len 96 \
