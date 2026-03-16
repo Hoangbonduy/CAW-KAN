@@ -162,9 +162,6 @@ if __name__ == '__main__':
     parser.add_argument('--top_p', type=float, default=0.5, help='Dynamic Routing in MoE')
     parser.add_argument('--pos', type=int, choices=[0, 1], default=1, help='Positional Embedding. Set pos to 0 or 1')
     
-    # FrequencyDomainLoss
-    parser.add_argument('--lambda_f', type=float, default=0.1, help='Weight for frequency domain loss (0.0=off, 0.1-1.0 recommended)')
-
     args = parser.parse_args()
     if torch.cuda.is_available() and args.use_gpu:
         args.device = torch.device('cuda:{}'.format(args.gpu))
@@ -188,6 +185,9 @@ if __name__ == '__main__':
 
     if args.task_name == 'long_term_forecast':
         Exp = Exp_Long_Term_Forecast 
+    elif args.task_name == 'long_term_forecast_JDKAN':
+        from exp.exp_long_term_forecasting_JDKAN import Exp_Long_Term_Forecast_JDKAN
+        Exp = Exp_Long_Term_Forecast_JDKAN
 
     if args.is_training:
         for ii in range(args.itr):

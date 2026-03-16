@@ -1,140 +1,80 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import math
 
 class AdaptiveWaveletKANLayer(nn.Module):
-    """
-    Lớp Adaptive Wavelet KAN dựa trên thời gian (Time-Domain).
-    Thay vì biến đổi giá trị input, lớp này học các trọng số biến thiên theo thời gian
-    (Time-Varying Weights) để điều biến tín hiệu.
-    
-    Công thức: Output(t) = Linear(Input(t)) * Sum(w_k * psi((t - b_k) / a_k))
-    """
-    def __init__(self, in_features, out_features, seq_len, num_wavelets=3, wavelet_type='mexican_hat'):
-        super().__init__()
-        self.seq_len = seq_len
+    def __init__(self, in_features, out_features, seq_len, num_wavelets=7):
+        super(AdaptiveWaveletKANLayer, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features 
         self.num_wavelets = num_wavelets
-        self.wavelet_type = wavelet_type
         
-        # 1. Linear Transformation để trộn kênh input (Channel Mixing)
-        self.linear = nn.Linear(in_features, out_features)
-        
-        # 2. Các tham số Adaptive Wavelet (Learnable Time-Frequency Basis)
-        # Shape: [Out_features, Num_wavelets] - Mỗi kênh đầu ra có bộ wavelet riêng
-        self.a = nn.Parameter(torch.empty(out_features, num_wavelets)) # Scale (Độ rộng)
-        self.b = nn.Parameter(torch.empty(out_features, num_wavelets)) # Translation (Vị trí)
-        self.w = nn.Parameter(torch.empty(out_features, num_wavelets)) # Weight (Trọng số đóng góp)
-        
-        self._init_parameters()
-
-    def _init_parameters(self):
-        # --- Khởi tạo theo hướng dẫn trong ảnh ---
-        
-        # 1. Khởi tạo a_k (Scale): Thang Logarit từ 1.0 đến T/4
-        # log(1) = 0, log(T/4) = log_max
-        T = self.seq_len
-        log_min = 0.0
-        log_max = math.log(max(T / 4, 1.0)) # Đảm bảo không âm
-        
-        # Tạo grid logarit
-        a_init = torch.logspace(log_min, log_max, self.num_wavelets, base=math.e)
-        # Mở rộng cho mọi out_features
-        self.a.data = a_init.unsqueeze(0).expand(self.a.shape).clone()
-        
-        # 2. Khởi tạo b_k (Translation): Rải đều tuyến tính từ 0 đến T-1
-        b_init = torch.linspace(0, T - 1, self.num_wavelets)
-        self.b.data = b_init.unsqueeze(0).expand(self.b.shape).clone()
-        
-        # 3. Khởi tạo w_k (Weight): Kaiming Uniform hoặc Normal
+        # --- Nhánh Wavelet ---
+        self.w = nn.Parameter(torch.empty(in_features, num_wavelets))
         nn.init.kaiming_uniform_(self.w, a=math.sqrt(5))
         
-        # Init Linear layer
-        nn.init.xavier_uniform_(self.linear.weight)
-        if self.linear.bias is not None:
-            nn.init.zeros_(self.linear.bias)
+        # --- Thêm tham số cho Sóng Lai (Morlet) ---
+        self.num_mexican = num_wavelets // 2
+        self.num_morlet = num_wavelets - self.num_mexican
+        # Thêm tần số nội tại omega0 có thể học được cho nhánh Morlet
+        self.omega0 = nn.Parameter(torch.empty(1, 1, in_features, self.num_morlet))
+        nn.init.uniform_(self.omega0, 1.0, 5.0)
+        
+        grid_min, grid_max = -3.0, 3.0
 
-    def get_wavelet_basis(self, device):
-        """Tính toán giá trị phi(t) cho toàn bộ chuỗi thời gian"""
-        # Tạo vector thời gian t: [1, Seq_len, 1]
-        t = torch.arange(self.seq_len, device=device).float().view(1, self.seq_len, 1)
+        # Làm tròn lên cho Trend, phần còn lại cho Detail
+        num_trend = (num_wavelets + 1) // 2   # 7 -> 4
+        num_detail = num_wavelets - num_trend  # 7 -> 3
+
+        # --- Nhánh Trend: trải đều trên toàn miền ---
+        b_trend = torch.linspace(grid_min, grid_max, num_trend)  # [-3, -1, 1, 3]
+        step = (grid_max - grid_min) / (num_trend - 1)           # step = 2.0
+        a_trend = torch.ones(num_trend) * step * 0.8             # a = 2.0
+
+        # --- Nhánh Detail: so le (lấp đúng khe giữa các wavelet trend) ---
+        detail_min = grid_min + step / 2  # -3.0 + 1.0 = -2.0
+        detail_max = grid_max - step / 2  #  3.0 - 1.0 =  2.0
+        b_detail = torch.linspace(detail_min, detail_max, num_detail)  # [-2, 0, 2]
+        a_detail = torch.ones(num_detail) * step * 0.4                 # a = 1.0
+
+        # --- Tổng hợp Grid ---
+        base_b = torch.cat([b_trend, b_detail], dim=0)
+        grid_b = base_b.unsqueeze(0).repeat(in_features, 1) 
         
-        # Reshape tham số để broadcasting: [Out, Wavelets] -> [1, 1, Out, Wavelets]
-        a = self.a.view(1, 1, -1, self.num_wavelets)
-        b = self.b.view(1, 1, -1, self.num_wavelets)
-        w = self.w.view(1, 1, -1, self.num_wavelets)
+        base_a = torch.cat([a_trend, a_detail], dim=0)
+        grid_a = base_a.unsqueeze(0).repeat(in_features, 1)
         
-        # Tính toán (t - b) / a
-        # t mở rộng thành [1, Seq, 1, 1]
-        t_expanded = t.unsqueeze(-1) 
-        x_scaled = (t_expanded - b) / (a + 1e-5) # Cộng epsilon tránh chia 0
-        
-        # Tính psi(x)
-        if self.wavelet_type == 'mexican_hat':
-            term1 = (x_scaled ** 2) - 1
-            term2 = torch.exp(-0.5 * x_scaled ** 2)
-            psi = (2 / (math.sqrt(3) * math.pi**0.25)) * term1 * term2
-        elif self.wavelet_type == 'morlet':
-            psi = torch.cos(5.0 * x_scaled) * torch.exp(-0.5 * x_scaled ** 2)
-        else: # Fallback Gaussian
-             psi = torch.exp(-0.5 * x_scaled ** 2)
-             
-        # Tổng hợp các wavelet: Sum(w_k * psi_k)
-        # Kết quả phi_t: [1, Seq, Out]
-        phi_t = (w * psi).sum(dim=-1)
-        
-        return phi_t
+        # Thử để nn.Parameter thay vì register_buffer để mạng tự fine-tune nhẹ lưới
+        # self.b = nn.Parameter(grid_b.view(1, 1, in_features, num_wavelets))
+        # self.a = nn.Parameter(grid_a.view(1, 1, in_features, num_wavelets))
+        self.register_buffer('b', grid_b.view(1, 1, in_features, num_wavelets))
+        self.register_buffer('a', grid_a.view(1, 1, in_features, num_wavelets))
 
     def forward(self, x):
-        # x shape: [Batch, Seq_len, In_features]
+        # x input: [Batch, Seq, Channel]
         
-        # Bước 1: Trộn thông tin các kênh (Linear Mixing)
-        # out_linear: [Batch, Seq_len, Out_features]
-        out_linear = self.linear(x)
+        # --- Chỉ tính toán một nhánh Wavelet duy nhất ---
+        x_expanded = x.unsqueeze(-1) # -> [Batch, Seq, Channel, 1]
         
-        # Bước 2: Tạo Time-Domain Basis
-        # phi_t: [1, Seq_len, Out_features]
-        phi_t = self.get_wavelet_basis(x.device)
+        # Tránh chia cho 0
+        z = (x_expanded - self.b) / (torch.abs(self.a) + 1e-6)
         
-        # Bước 3: Modulation (Nhân element-wise)
-        # Tín hiệu được khuếch đại hoặc triệt tiêu dựa trên vị trí thời gian
-        out = out_linear * phi_t
+        # --- Tách z ra cho 2 họ hàm sóng (Sóng Lai) ---
+        z_mexican = z[..., :self.num_mexican]
+        z_morlet = z[..., self.num_mexican:]
+        
+        # 1. DoG Wavelet (Mexican Hat)
+        psi_mexican = (1 - z_mexican**2) * torch.exp(-0.5 * z_mexican**2)
+        
+        # 2. Morlet Wavelet
+        psi_morlet = torch.cos(self.omega0 * z_morlet) * torch.exp(-0.5 * z_morlet**2)
+        
+        # --- Tổng hợp biểu diễn sóng lai ---
+        psi = torch.cat([psi_mexican, psi_morlet], dim=-1)
+        
+        w = self.w.view(1, 1, self.in_features, self.num_wavelets)
+        
+        # Output trực tiếp từ tổ hợp tuyến tính của Wavelet
+        out = (w * psi).sum(dim=-1) # Output: [Batch, Seq, Channel]
         
         return out
-
-class AdaptiveWaveletKANBlock(nn.Module):
-    """
-    Block tích hợp thay thế cho WaveletKANBlock cũ.
-    Kết hợp nhánh Base (Trend) và nhánh Adaptive Wavelet (Spike/Detail).
-    """
-    def __init__(self, input_dim, output_dim, seq_len, dropout=0.1, num_wavelets=3):
-        super().__init__()
-        
-        # Nhánh Base: Linear + SiLU (Học các biến đổi mượt/phi tuyến thông thường)
-        self.base_linear = nn.Linear(input_dim, output_dim)
-        self.base_activation = nn.SiLU()
-        
-        # Nhánh Adaptive KAN: Học các đặc trưng phụ thuộc thời gian (Time-Aware)
-        # Đây là phần thay thế quan trọng theo ý tưởng của bạn
-        self.adaptive_kan = AdaptiveWaveletKANLayer(
-            input_dim, output_dim, seq_len, num_wavelets=num_wavelets
-        )
-        
-        self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(output_dim)
-
-    def forward(self, x):
-        # x: [Batch, Seq, Channel] - Lưu ý: Input phải ở dạng [B, L, C]
-        
-        # 1. Nhánh Base (Smooth/Global features)
-        base = self.base_linear(x)
-        base = self.base_activation(base)
-        
-        # 2. Nhánh Adaptive Wavelet (Time-localized features)
-        kan = self.adaptive_kan(x)
-        
-        # 3. Gated Fusion (Cải tiến so với cộng đơn thuần)
-        # Cho phép mô hình tự học cách cân bằng giữa Trend và Spike tại mỗi thời điểm
-        out = base + kan 
-        
-        return self.layer_norm(self.dropout(out))

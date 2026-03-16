@@ -33,4 +33,4 @@ orjson==3.11.5
 tensorboard==2.20.0
 python-dotenv==1.0.0
 ######
-
+pytorch_wavelets==1.3.0

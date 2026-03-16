@@ -1,3 +1,6 @@
+import math
+import torch.nn.functional as F
+
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from utils.tools import EarlyStopping, adjust_learning_rate, visual
@@ -15,6 +18,14 @@ from utils.augmentation import run_augmentation, run_augmentation_single
 
 warnings.filterwarnings('ignore')
 
+class LogCoshLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, y_pred, y_true):
+        diff = y_pred - y_true
+        # Dùng công thức ổn định số học (tránh tràn việt do sinh/cosh quá lớn)
+        return torch.mean(diff + F.softplus(-2.0 * diff) - math.log(2.0))
 
 class Exp_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args):
@@ -32,11 +43,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         return data_set, data_loader
 
     def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        model_optim = optim.Adam(
+            self.model.parameters(),
+            lr=self.args.learning_rate,
+            weight_decay=self.args.weight_decay,
+        )
         return model_optim
 
     def _select_criterion(self):
-        criterion = nn.MSELoss()
+        # criterion = nn.MSELoss()
+        criterion = LogCoshLoss()
+
+        # criterion = nn.HuberLoss(delta=1.0)
         return criterion
  
 
@@ -76,6 +94,16 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
     def train(self, setting):
         train_data, train_loader = self._get_data(flag='train')
+
+        # ====================== AUTO DATA-DRIVEN GRID ======================
+        # Chỉ chạy khi model là MS_JDKAN_researching_2 (phiên bản mới)
+        if hasattr(self.model, 'analyze_wavelet_stats') and hasattr(self.model, 'setup_data_driven_grids'):
+            print("\n🔍 [MS_JDKAN_researching_2] Analyzing wavelet statistics from train data...")
+            stats = self.model.analyze_wavelet_stats(train_loader, self.device)
+            self.model.setup_data_driven_grids(stats)
+            print("✅ [MS_JDKAN_researching_2] Data-driven grid + overlap đã được setup tự động!")
+        # ===================================================================
+
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
 
@@ -147,10 +175,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                 if self.args.use_amp:
                     scaler.scale(loss).backward()
+                    if self.args.grad_clip > 0:
+                        scaler.unscale_(model_optim)
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.args.grad_clip)
                     scaler.step(model_optim)
                     scaler.update()
                 else:
                     loss.backward()
+                    if self.args.grad_clip > 0:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.args.grad_clip)
                     model_optim.step()
                 
                 # Step scheduler after each batch for OneCycleLR
