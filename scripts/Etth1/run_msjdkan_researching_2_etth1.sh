@@ -1,6 +1,8 @@
 # Lấy đường dẫn gốc
 model_name=MS_JDKAN
-wavelet_type=multi_order
+wavelet_type=mexican_hat
+num_wavelets=8
+grid_size=3.0
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -18,11 +20,11 @@ fi
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
-  --model_id ETTh2_96_96 \
+  --model_id ETTh1_96_96 \
   --model $model_name \
-  --data ETTh2\
+  --data ETTh1 \
   --root_path ./dataset/ETT-small/ \
-  --data_path ETTh2.csv \
+  --data_path ETTh1.csv \
   --features M \
   --target OT \
   --freq h \
@@ -34,7 +36,7 @@ python -u run.py \
   --c_out 7 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 3 \
+  --e_layers 2 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \
@@ -45,8 +47,10 @@ python -u run.py \
   --learning_rate 0.001 \
   --train_epochs 100 \
   --patience 10 \
-  --weight_decay 1e-4 \
   --lradj 'cosine' \
   --pct_start 0.2 \
   --wavelet_type $wavelet_type \
+    --num_wavelets $num_wavelets \
+  --grid_size $grid_size \
+  --no_use_gpu \
   --des Exp_MS_JDKAN_researching

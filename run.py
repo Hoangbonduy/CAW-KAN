@@ -28,6 +28,11 @@ if __name__ == '__main__':
     parser.add_argument('--kan_order', type=int, default=3, help='Bậc của đa thức trong rKAN')
     parser.add_argument('--n_fourier_terms', type=int, default=8, help='Số lượng Fourier terms cho SmoothLayer')
     parser.add_argument('--rkan_order', type=int, default=3, help='Bậc của rKAN cho DiffusionLayer')
+    parser.add_argument('--wavelet_type', type=str, default='mexican_hat',
+                        choices=['mexican_hat', 'morlet', 'dog', 'shannon'],
+                        help='Loại wavelet cho AdaptiveWaveletKAN')
+    parser.add_argument('--num_wavelets', type=int, default=8, help='Số lượng wavelet cho AdaptiveWaveletKAN')
+    parser.add_argument('--grid_size', type=float, default=3.0, help='Grid size for wavelets (grid_min=-grid_size, grid_max=grid_size)')
 
     # data loader
     parser.add_argument('--data', type=str, required=True, default='ETTh1', help='dataset type')
@@ -185,9 +190,6 @@ if __name__ == '__main__':
 
     if args.task_name == 'long_term_forecast':
         Exp = Exp_Long_Term_Forecast 
-    elif args.task_name == 'long_term_forecast_JDKAN':
-        from exp.exp_long_term_forecasting_JDKAN import Exp_Long_Term_Forecast_JDKAN
-        Exp = Exp_Long_Term_Forecast_JDKAN
 
     if args.is_training:
         for ii in range(args.itr):

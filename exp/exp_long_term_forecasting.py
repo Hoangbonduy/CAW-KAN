@@ -46,7 +46,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         model_optim = optim.Adam(
             self.model.parameters(),
             lr=self.args.learning_rate,
-            weight_decay=self.args.weight_decay,
+            # weight_decay=self.args.weight_decay,
         )
         return model_optim
 

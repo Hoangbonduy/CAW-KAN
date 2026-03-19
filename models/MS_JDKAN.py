@@ -12,7 +12,7 @@ class ContextAwareWavKANBlock(nn.Module):
     Loại bỏ hoàn toàn J_list và tách trend thủ công.
     Tích hợp Conv1D để tạo ngữ cảnh (Context-Aware) trước khi đưa vào Wav-KAN.
     """
-    def __init__(self, d_model, seq_len, dropout=0.1, num_wavelets=8):
+    def __init__(self, d_model, seq_len, dropout=0.1, num_wavelets=8, wavelet_type='mexican_hat', grid_size=3.0):
         super().__init__()
         self.d_model = d_model
         
@@ -21,7 +21,8 @@ class ContextAwareWavKANBlock(nn.Module):
         self.context_conv = nn.Conv1d(d_model, d_model, kernel_size=3, padding=1)
 
         # 2. Lõi Adaptive Wavelet KAN (Xử lý trực tiếp tín hiệu nguyên bản)
-        self.adaptive_kan = AdaptiveWaveletKANLayer(d_model, d_model, seq_len, num_wavelets=num_wavelets)
+        self.adaptive_kan = AdaptiveWaveletKANLayer(d_model, d_model, seq_len, num_wavelets=num_wavelets,
+                                                    wavelet_type=wavelet_type, grid_size=grid_size)
         
         # 3. Residual & Normalization
         self.norm1 = nn.LayerNorm(d_model)
@@ -66,16 +67,20 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
         
         # --- 1. Embedding ---
-        self.enc_embedding = DataEmbedding_wo_pos(c_in=1, d_model=configs.d_model, embed_type=configs.embed, freq=configs.freq, dropout=configs.dropout)
+        self.enc_embedding = DataEmbedding_wo_pos(c_in=1, d_model=configs.d_model, dropout=configs.dropout)
         self.normalize_layer = Normalize(configs.enc_in, affine=True, non_norm=False, subtract_last=False)
         
+        # --- ĐÃ XÓA J_LIST ---
+
         # --- 2. Encoder (Stacked Direct Wav-KAN Blocks) ---
         self.blocks = nn.ModuleList([
             ContextAwareWavKANBlock(
                 d_model=configs.d_model,
                 seq_len=self.seq_len,
                 dropout=configs.dropout,
-                num_wavelets=8 # Tăng số lượng wavelet để bù đắp việc bỏ J_list
+                num_wavelets=configs.num_wavelets,
+                wavelet_type=configs.wavelet_type,
+                grid_size=configs.grid_size
             ) for _ in range(configs.e_layers)
         ])
         

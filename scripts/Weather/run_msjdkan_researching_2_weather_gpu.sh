@@ -1,5 +1,6 @@
 # Lấy đường dẫn gốc
 model_name=MS_JDKAN
+wavelet_type=dog
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -48,4 +49,5 @@ python -u run.py \
   --weight_decay 1e-4 \
   --lradj 'cosine' \
   --pct_start 0.2 \
+  --wavelet_type $wavelet_type \
   --des Exp_MS_JDKAN_researching
