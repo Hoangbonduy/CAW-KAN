@@ -2,8 +2,7 @@
 model_name=MS_JDKAN
 wavelet_type=mexican_hat
 num_wavelets=8
-grid_size=3.0
-kernel_size=3
+grid_size=2.0
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -21,14 +20,12 @@ fi
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
-  --model_id ETTh2_96_96 \
+  --model_id ETTm1_96_96 \
   --model $model_name \
-  --data ETTh2\
+  --data ETTm1\
   --root_path ./dataset/ETT-small/ \
-  --data_path ETTh2.csv \
+  --data_path ETTm1.csv \
   --features M \
-  --target OT \
-  --freq h \
   --seq_len 96 \
   --label_len 0 \
   --pred_len 96 \
@@ -52,7 +49,6 @@ python -u run.py \
   --lradj 'cosine' \
   --pct_start 0.2 \
   --wavelet_type $wavelet_type \
-    --num_wavelets $num_wavelets \
-    --grid_size $grid_size \
-    --kernel_size $kernel_size \
+  --num_wavelets $num_wavelets \
+  --grid_size $grid_size \
   --des Exp_MS_JDKAN_researching

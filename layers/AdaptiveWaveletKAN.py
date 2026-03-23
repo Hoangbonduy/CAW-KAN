@@ -55,7 +55,7 @@ class AdaptiveWaveletKANLayer(nn.Module):
 
     def _compute_wavelet_response(self, z):
         if self.wavelet_type == 'mexican_hat':
-            coeff = 2.0 / (math.sqrt(3.0) * (math.pi ** 0.25))
+            # coeff = 2.0 / (math.sqrt(3.0) * (math.pi ** 0.25))
             # return coeff * (z**2 - 1.0) * torch.exp(-0.5 * z**2)
             # return coeff * (z**2 - 1.0) * torch.exp(-0.5 * z**2)
             return (1.0 - z**2) * torch.exp(-0.5 * z**2)  # Bỏ hệ số chuẩn hóa để tăng biên độ, giúp mạng dễ học hơn

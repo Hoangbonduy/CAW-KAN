@@ -12,13 +12,14 @@ class ContextAwareWavKANBlock(nn.Module):
     Loại bỏ hoàn toàn J_list và tách trend thủ công.
     Tích hợp Conv1D để tạo ngữ cảnh (Context-Aware) trước khi đưa vào Wav-KAN.
     """
-    def __init__(self, d_model, seq_len, dropout=0.1, num_wavelets=8, wavelet_type='mexican_hat', grid_size=3.0):
+    def __init__(self, d_model, seq_len, dropout=0.1, num_wavelets=8, wavelet_type='mexican_hat', grid_size=3.0,
+                 kernel_size=7):
         super().__init__()
         self.d_model = d_model
         
         # 1. Khảm Ngữ cảnh thông qua Tích chập 1D (Thay thế J_list)
         # Giúp hòa trộn thông tin chéo, cung cấp trường nhìn rộng cho Wavelet
-        self.context_conv = nn.Conv1d(d_model, d_model, kernel_size=3, padding=1)
+        self.context_conv = nn.Conv1d(d_model, d_model, kernel_size=kernel_size, padding=kernel_size // 2)
 
         # 2. Lõi Adaptive Wavelet KAN (Xử lý trực tiếp tín hiệu nguyên bản)
         self.adaptive_kan = AdaptiveWaveletKANLayer(d_model, d_model, seq_len, num_wavelets=num_wavelets,
@@ -65,6 +66,7 @@ class Model(nn.Module):
         self.configs = configs
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
+        self.kernel_size = configs.kernel_size
         
         # --- 1. Embedding ---
         self.enc_embedding = DataEmbedding_wo_pos(c_in=1, d_model=configs.d_model, dropout=configs.dropout)
@@ -80,7 +82,8 @@ class Model(nn.Module):
                 dropout=configs.dropout,
                 num_wavelets=configs.num_wavelets,
                 wavelet_type=configs.wavelet_type,
-                grid_size=configs.grid_size
+                grid_size=configs.grid_size,
+                kernel_size=self.kernel_size
             ) for _ in range(configs.e_layers)
         ])
         

@@ -1,6 +1,9 @@
 # Lấy đường dẫn gốc
 model_name=MS_JDKAN
-wavelet_type=dog
+wavelet_type=mexican_hat
+num_wavelets=8
+grid_size=4.0
+kernel_size=7
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -32,7 +35,7 @@ python -u run.py \
   --c_out 7 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 3 \
+  --e_layers 1 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \
@@ -45,5 +48,8 @@ python -u run.py \
   --patience 10 \
   --lradj 'cosine' \
   --pct_start 0.2 \
-    --wavelet_type $wavelet_type \
+  --wavelet_type $wavelet_type \
+  --num_wavelets $num_wavelets \
+  --grid_size $grid_size \
+    --kernel_size $kernel_size \
   --des Exp_MS_JDKAN_researching

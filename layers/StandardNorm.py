@@ -59,7 +59,7 @@ class Normalize(nn.Module):
             
         # Bước 1: Đảo ngược Affine
         if self.affine:
-            x = (x - self.affine_bias) / (self.affine_weight + self.eps)
+            x = (x - self.affine_bias) / (self.affine_weight + self.eps * self.eps)
             
         # Bước 2: Nhân lại Stdev (Khôi phục biên độ) - QUAN TRỌNG
         x = x * self.stdev

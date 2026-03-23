@@ -3,6 +3,7 @@ model_name=MS_JDKAN
 wavelet_type=mexican_hat
 num_wavelets=8
 grid_size=3.0
+kernel_size=7
 
 # Tạo thư mục logs nếu chưa có
 if [ ! -d "./logs" ]; then
@@ -51,4 +52,5 @@ python -u run.py \
   --wavelet_type $wavelet_type \
     --num_wavelets $num_wavelets \
   --grid_size $grid_size \
+  --kernel_size $kernel_size \
   --des Exp_MS_JDKAN_researching
