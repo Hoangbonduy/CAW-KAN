@@ -11,7 +11,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
 	sys.path.insert(0, PROJECT_ROOT)
 
-from models.MS_JDKAN import Model
+from models.CAW_KAN import Model
 
 
 BATCH_SIZE = 32
@@ -30,7 +30,7 @@ FREQ_TIME_DIM = {
 
 
 COMMON_CONFIG = {
-	"model": "MS_JDKAN",
+	"model": "CAW_KAN",
 	"task_name": "long_term_forecast",
 	"features": "M",
 	"embed": "timeF",
@@ -99,14 +99,14 @@ DATASET_CONFIGS = [
 
 
 class ProfileWrapper(nn.Module):
-	"""Wrap MS_JDKAN to profile a clean forecast forward pass."""
+	"""Wrap CAW_KAN to profile a clean forecast forward pass."""
 
 	def __init__(self, model: nn.Module):
 		super().__init__()
 		self.model = model
 
 	def forward(self, x_enc, x_mark_enc):
-		# Keep the same signature as the training path used by MS_JDKAN.
+		# Keep the same signature as the training path used by CAW_KAN.
 		return self.model(x_enc, x_mark_enc, None, None)
 
 
