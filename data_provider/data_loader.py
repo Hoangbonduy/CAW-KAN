@@ -104,9 +104,10 @@ class Dataset_ETT_hour(Dataset):
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len
 
-        seq_x = self.data_x[s_begin:s_end]
+        # Tạo 2 nhánh dữ liệu
+        seq_x = self.data_x[s_begin:s_end] # Giá trị time series
         seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
+        seq_x_mark = self.data_stamp[s_begin:s_end] # đặc trưng thời gian
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
         return seq_x, seq_y, seq_x_mark, seq_y_mark

@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--kan_order', type=int, default=3, help='Bậc của đa thức trong rKAN')
     parser.add_argument('--n_fourier_terms', type=int, default=8, help='Số lượng Fourier terms cho SmoothLayer')
     parser.add_argument('--rkan_order', type=int, default=3, help='Bậc của rKAN cho DiffusionLayer')
-    parser.add_argument('--wavelet_type', type=str, default='mexican_hat',
+    parser.add_argument('--wavelet_type', type=str, default='morlet',
                         choices=['mexican_hat', 'morlet', 'dog', 'shannon'],
                         help='Loại wavelet cho AdaptiveWaveletKAN')
     parser.add_argument('--num_wavelets', type=int, default=8, help='Số lượng wavelet cho AdaptiveWaveletKAN')

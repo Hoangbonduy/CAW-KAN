@@ -1,5 +1,5 @@
 # Profile C: near-baseline stabilization for pred_len=720
-model_name=MS_JDKAN
+model_name=CAW_KAN
 
 if [ ! -d "./logs" ]; then
     mkdir ./logs
@@ -44,4 +44,4 @@ python -u run.py \
   --grad_clip 0.7 \
   --lradj 'cosine' \
   --pct_start 0.2 \
-  --des Exp_MS_JDKAN_researching_profile_c
+  --des Exp_CAW_KAN_researching_profile_c

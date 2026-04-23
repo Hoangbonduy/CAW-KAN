@@ -1,5 +1,5 @@
 # Lấy đường dẫn gốc
-model_name=MS_JDKAN
+model_name=CAW_KAN
 
 # Tạo thư mục logs nếu chưa có
 if [ ! -d "./logs" ]; then
@@ -10,7 +10,7 @@ if [ ! -d "./logs/LongForecasting" ]; then
     mkdir ./logs/LongForecasting
 fi
 
-# Chạy thử nghiệm MS_JDKAN - Cấu hình chống Overfit cực đoan cho Illness
+# Chạy thử nghiệm CAW_KAN - Cấu hình chống Overfit cực đoan cho Illness
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
@@ -45,4 +45,4 @@ python -u run.py \
   --weight_decay 1e-3 \
   --lradj 'cosine' \
   --pct_start 0.2 \
-  --des 'Exp_MS_JDKAN_researching_Tuned'
+  --des 'Exp_CAW_KAN_researching_Tuned'

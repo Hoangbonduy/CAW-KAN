@@ -1,5 +1,5 @@
 # Profile A: strong stabilization for pred_len=720
-model_name=MS_JDKAN
+model_name=CAW_KAN
 
 if [ ! -d "./logs" ]; then
     mkdir ./logs
@@ -44,4 +44,4 @@ python -u run.py \
   --grad_clip 1.0 \
   --lradj 'TST' \
   --pct_start 0.25 \
-  --des Exp_MS_JDKAN_researching_profile_a
+  --des Exp_CAW_KAN_researching_profile_a

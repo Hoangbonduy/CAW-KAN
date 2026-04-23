@@ -1,5 +1,5 @@
 # Lấy đường dẫn gốc
-model_name=MS_JDKAN
+model_name=CAW_KAN
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -12,7 +12,7 @@ if [ ! -d "./logs/LongForecasting" ]; then
     mkdir ./logs/LongForecasting
 fi
 
-# Chạy thử nghiệm MS_JDKAN
+# Chạy thử nghiệm CAW_KAN
 # Anti-overfit: giảm d_model, tăng dropout, thêm weight_decay, gradient clipping, cosine LR
 python -u run.py \
   --task_name long_term_forecast \
@@ -48,4 +48,4 @@ python -u run.py \
   --weight_decay 1e-4 \
   --lradj 'cosine' \
   --pct_start 0.2 \
-  --des Exp_MS_JDKAN_researching
+  --des Exp_CAW_KAN_researching

@@ -3,7 +3,7 @@ import torch.nn as nn
 import math
 
 class AdaptiveWaveletKANLayer(nn.Module):
-    def __init__(self, in_features, out_features, seq_len, num_wavelets=7, wavelet_type='mexican_hat', grid_size=3.0):
+    def __init__(self, in_features, out_features, seq_len, num_wavelets=7, wavelet_type='morlet', grid_size=3.0):
         super(AdaptiveWaveletKANLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features 
@@ -18,11 +18,6 @@ class AdaptiveWaveletKANLayer(nn.Module):
         self.w = nn.Parameter(torch.empty(in_features, num_wavelets))
         nn.init.kaiming_uniform_(self.w, a=math.sqrt(5))
         
-        if self.wavelet_type == 'morlet':
-            self.register_buffer('omega0', torch.tensor(5.0))
-        else:
-            self.register_buffer('omega0', None)
-        
         grid_min, grid_max = -grid_size, grid_size
 
         # Làm tròn lên cho Trend, phần còn lại cho Detail
@@ -32,13 +27,22 @@ class AdaptiveWaveletKANLayer(nn.Module):
         # --- Nhánh Trend: trải đều trên toàn miền ---
         b_trend = torch.linspace(grid_min, grid_max, num_trend)  # [-3, -1, 1, 3]
         step = (grid_max - grid_min) / (num_trend - 1)           # step = 2.0
-        a_trend = torch.ones(num_trend) * step * 0.8             # a = 2.0
+
+        if self.wavelet_type == 'dog':
+            trend_coeff, detail_coeff = 0.26, 0.13
+        elif self.wavelet_type == 'mexican_hat':
+            # Default cho mexican_hat (và các wavelet khác nếu cần giữ ổn định như hiện tại)
+            trend_coeff, detail_coeff = 0.8, 0.4
+        else: # morlet
+            trend_coeff, detail_coeff = 2.42, 1.21  
+
+        a_trend = torch.ones(num_trend) * step * trend_coeff
 
         # --- Nhánh Detail: so le (lấp đúng khe giữa các wavelet trend) ---
         detail_min = grid_min + step / 2  # -3.0 + 1.0 = -2.0
         detail_max = grid_max - step / 2  #  3.0 - 1.0 =  2.0
         b_detail = torch.linspace(detail_min, detail_max, num_detail)  # [-2, 0, 2]
-        a_detail = torch.ones(num_detail) * step * 0.4                 # a = 1.0
+        a_detail = torch.ones(num_detail) * step * detail_coeff
 
         # --- Tổng hợp Grid ---
         base_b = torch.cat([b_trend, b_detail], dim=0)
@@ -61,7 +65,7 @@ class AdaptiveWaveletKANLayer(nn.Module):
             return (1.0 - z**2) * torch.exp(-0.5 * z**2)  # Bỏ hệ số chuẩn hóa để tăng biên độ, giúp mạng dễ học hơn
 
         if self.wavelet_type == 'morlet':
-            return torch.cos(self.omega0 * z) * torch.exp(-0.5 * z**2)
+            return torch.cos(5.0 * z) * torch.exp(-0.5 * z**2)
 
         if self.wavelet_type == 'dog':
             return z * torch.exp(-0.5 * z**2)
