@@ -41,6 +41,7 @@ python -u run.py \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \
+  --embed timeF \
   --dropout 0.1 \
   --channel_independence 1 \
   --batch_size 32 \
@@ -53,4 +54,5 @@ python -u run.py \
     --num_wavelets $num_wavelets \
   --grid_size $grid_size \
   --kernel_size $kernel_size \
-  --des Exp_CAW_KAN_researching
+  --no_use_gpu \
+  --des Exp_CAW_KAN_researching "$@"

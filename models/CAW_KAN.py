@@ -69,14 +69,10 @@ class Model(nn.Module):
         self.kernel_size = configs.kernel_size
         
         # --- 1. Embedding ---
-        self.enc_embedding = DataEmbedding_wo_pos(
-            c_in=1,
-            d_model=configs.d_model,
-            embed_type=configs.embed,
-            freq=configs.freq,
-            dropout=configs.dropout,
-        )
+        self.enc_embedding = DataEmbedding_wo_pos(c_in=1, d_model=configs.d_model, freq = getattr(configs, 'freq', 'h'), dropout=configs.dropout)
         self.normalize_layer = Normalize(configs.enc_in, affine=True, non_norm=False, subtract_last=False)
+        
+        # --- ĐÃ XÓA J_LIST ---
 
         # --- 2. Encoder (Stacked Direct Wav-KAN Blocks) ---
         self.blocks = nn.ModuleList([
@@ -96,7 +92,7 @@ class Model(nn.Module):
         self.predictor = nn.Linear(self.seq_len, self.pred_len)
         
     def forecast(self, x_enc, x_mark_enc=None, debug_store=None):
-        # 1. Chuẩn hóa dữ liệu đầu vào
+        # 1. Normalize
         x_norm = self.normalize_layer(x_enc, 'norm')
         
         # 2. Embedding
