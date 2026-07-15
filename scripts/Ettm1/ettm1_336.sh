@@ -50,6 +50,5 @@ python -u run.py \
   --pct_start 0.2 \
   --wavelet_type $wavelet_type \
   --num_wavelets $num_wavelets \
-  --grid_size $grid_size \
     --kernel_size $kernel_size \
   --des Exp_CAW_KAN_researching

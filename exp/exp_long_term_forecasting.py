@@ -27,6 +27,29 @@ class LogCoshLoss(nn.Module):
         # Dùng công thức ổn định số học (tránh tràn việt do sinh/cosh quá lớn)
         return torch.mean(diff + F.softplus(-2.0 * diff) - math.log(2.0))
 
+class MAELoss(nn.Module):
+    """
+    Mean Absolute Error Loss. Trong PyTorch, nó tương đương với L1Loss.
+    """
+    def __init__(self):
+        super().__init__()
+        self.criterion = nn.L1Loss()
+
+    def forward(self, y_pred, y_true):
+        return self.criterion(y_pred, y_true)
+
+
+class HuberLoss(nn.Module):
+    """
+    Huber Loss với delta mặc định là 1.0.
+    """
+    def __init__(self, delta=1.0):
+        super().__init__()
+        self.criterion = nn.HuberLoss(delta=delta)
+
+    def forward(self, y_pred, y_true):
+        return self.criterion(y_pred, y_true)
+
 class Exp_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args):
         super(Exp_Long_Term_Forecast, self).__init__(args)
@@ -123,6 +146,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
     def _select_criterion(self):
         # criterion = nn.MSELoss()
+        # criterion = MAELoss()
+        # criterion = HuberLoss(delta=1.0)
         criterion = LogCoshLoss()
 
         # criterion = nn.HuberLoss(delta=1.0)
