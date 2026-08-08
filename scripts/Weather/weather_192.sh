@@ -20,23 +20,22 @@ fi
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
-  --model_id ETTh2_96_336 \
+    --model_id weather_96_192 \
   --model $model_name \
-  --data ETTh2\
-  --root_path ./dataset/ETT-small/ \
-  --data_path ETTh2.csv \
-  --features M \
+    --data weather\
+    --root_path ./dataset/weather/ \
+    --data_path weather.csv \
+    --freq t \
+    --seq_len 512 \
   --target OT \
-  --freq h \
-  --seq_len 512 \
   --label_len 0 \
-  --pred_len 336 \
-  --enc_in 7 \
-  --dec_in 7 \
-  --c_out 7 \
+  --pred_len 192 \
+    --enc_in 21 \
+    --dec_in 21 \
+    --c_out 21 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 2 \
+  --e_layers 3 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \
@@ -51,6 +50,6 @@ python -u run.py \
   --lradj 'cosine' \
   --pct_start 0.2 \
   --wavelet_type $wavelet_type \
-    --num_wavelets $num_wavelets \
-    --kernel_size $kernel_size \
+  --num_wavelets $num_wavelets \
+  --kernel_size $kernel_size \
   --des Exp_CAW_KAN_researching

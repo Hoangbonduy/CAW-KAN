@@ -3,6 +3,7 @@ model_name=CAW_KAN
 wavelet_type=mexican_hat
 num_wavelets=8
 kernel_size=3
+
 # Tạo thư mục logs nếu chưa có
 if [ ! -d "./logs" ]; then
     mkdir ./logs
@@ -33,7 +34,7 @@ python -u run.py \
   --c_out 7 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 3 \
+  --e_layers 2 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \

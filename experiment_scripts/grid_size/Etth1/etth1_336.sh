@@ -2,9 +2,7 @@
 model_name=CAW_KAN
 wavelet_type=mexican_hat
 num_wavelets=8
-kernel_size=7
-
-# Ban đầu d_model = 32, d_ff = 64
+kernel_size=3
 
 # Tạo thư mục logs nếu chưa có
 if [ ! -d "./logs" ]; then
@@ -15,16 +13,18 @@ if [ ! -d "./logs/LongForecasting" ]; then
     mkdir ./logs/LongForecasting
 fi
 
+for grid_size in 1.5 3.0 4.5 6.0 7.5; do
+echo "grid_size=${grid_size}"
 # Chạy thử nghiệm CAW_KAN
 # Anti-overfit: giảm d_model, tăng dropout, thêm weight_decay, gradient clipping, cosine LR
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
-  --model_id ETTh2_96_336 \
+  --model_id ETTh1_96_336_grid_${grid_size} \
   --model $model_name \
-  --data ETTh2\
+  --data ETTh1 \
   --root_path ./dataset/ETT-small/ \
-  --data_path ETTh2.csv \
+  --data_path ETTh1.csv \
   --features M \
   --target OT \
   --freq h \
@@ -36,7 +36,7 @@ python -u run.py \
   --c_out 7 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 2 \
+  --e_layers 3 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \
@@ -52,5 +52,7 @@ python -u run.py \
   --pct_start 0.2 \
   --wavelet_type $wavelet_type \
     --num_wavelets $num_wavelets \
-    --kernel_size $kernel_size \
-  --des Exp_CAW_KAN_researching
+  --kernel_size $kernel_size \
+  --grid_size $grid_size \
+  --des Exp_CAW_KAN_researching_grid_${grid_size}
+done

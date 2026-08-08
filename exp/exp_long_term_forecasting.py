@@ -55,81 +55,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         super(Exp_Long_Term_Forecast, self).__init__(args)
 
     def _build_model(self):
-        # =================================================================
-        # BƯỚC 0: CHỤP LẠI TRẠNG THÁI RANDOM (Cực kỳ quan trọng)
-        # =================================================================
-        import random
-        import numpy as np
-        torch_rng_state = torch.get_rng_state()
-        np_rng_state = np.random.get_state()
-        py_rng_state = random.getstate()
-        if self.args.use_gpu:
-            cuda_rng_state = torch.cuda.get_rng_state(self.device)
-
-        # =================================================================
-        # BƯỚC 1: TIỀN XỬ LÝ - BATCH-WISE QUANTILES (Không dùng Hardcode)
-        # =================================================================
-        if 'KAN' in self.args.model:
-            print("\n🔍 [Tiền xử lý] Đang dùng Batch-wise Quantiles quét tập Train để tính grid_size...")
-            train_data, train_loader = self._get_data(flag='train')
-            
-            q1_list = []
-            q3_list = []
-            
-            with torch.no_grad():
-                for batch_x, _, _, _ in train_loader:
-                    batch_x = batch_x.float().to(self.device)
-                    
-                    # Mô phỏng chuẩn hóa Instance Normalization
-                    means = batch_x.mean(1, keepdim=True)
-                    batch_x = batch_x - means
-                    stdev = torch.sqrt(torch.var(batch_x, dim=1, keepdim=True, unbiased=False) + 1e-5)
-                    batch_x /= stdev
-                    
-                    # Làm phẳng (flatten) batch để tính phân vị cho toàn bộ giá trị
-                    flattened_x = batch_x.view(-1)
-                    
-                    # Tính Q1 (25%) và Q3 (75%) cho batch hiện tại và lưu lại
-                    q1_list.append(torch.quantile(flattened_x, 0.25).item())
-                    q3_list.append(torch.quantile(flattened_x, 0.75).item())
-            
-            # Tính Global Q1, Q3 và IQR
-            q1_global = sum(q1_list) / len(q1_list)
-            q3_global = sum(q3_list) / len(q3_list)
-            iqr_global = q3_global - q1_global
-
-            # Tính rào cản Tukey
-            q_low_global = q1_global - 1.5 * iqr_global
-            q_high_global = q3_global + 1.5 * iqr_global
-
-            # Kích thước lưới cơ bản là trị tuyệt đối lớn nhất giữa 2 ngưỡng
-            base_grid_size = max(abs(q_low_global), abs(q_high_global))
-            
-            # ==============================================================
-            
-            rw_factor = math.sqrt(1.0 + (self.args.pred_len / self.args.seq_len))
-            optimal_grid_size = base_grid_size * rw_factor
-            
-            self.args.grid_size = optimal_grid_size
-            print(f"✅ Đã quét xong! Tự động thiết lập: args.grid_size = {self.args.grid_size:.3f}")
-            print("=" * 65 + "\n")
-
-        # =================================================================
-        # BƯỚC 2: KHÔI PHỤC LẠI TRẠNG THÁI RANDOM (Xóa dấu vết của Dataloader)
-        # =================================================================
-        torch.set_rng_state(torch_rng_state)
-        np.random.set_state(np_rng_state)
-        random.setstate(py_rng_state)
-        if self.args.use_gpu:
-            torch.cuda.set_rng_state(cuda_rng_state, self.device)
-
-        # =================================================================
-        # BƯỚC 3: KHỞI TẠO MÔ HÌNH VỚI TRỌNG SỐ VÀ SEED GỐC 100%
-        # =================================================================
+        # Khởi tạo mô hình bình thường với các args truyền vào
         model = self.model_dict[self.args.model](self.args).float()
 
+        # Áp dụng Multi-GPU nếu được cấu hình
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
+            
         return model
 
     def _get_data(self, flag):

@@ -3,20 +3,29 @@ import torch.nn as nn
 import math
 
 class AdaptiveWaveletKANLayer(nn.Module):
-    def __init__(self, in_features, out_features, seq_len, num_wavelets=7, wavelet_type='mexican_hat', grid_size=3.0):
+    def __init__(self, in_features, out_features, seq_len, num_wavelets=7, wavelet_type='mexican_hat', grid_size=3.0, rank=8):
         super(AdaptiveWaveletKANLayer, self).__init__()
         self.in_features = in_features
         self.out_features = out_features 
         self.num_wavelets = num_wavelets
         self.wavelet_type = wavelet_type.lower()
+        self.rank = rank # Tham số kiểm soát bậc phân rã R
 
         valid_wavelets = {'mexican_hat', 'morlet', 'dog', 'shannon'}
         if self.wavelet_type not in valid_wavelets:
             raise ValueError(f"Unsupported wavelet_type={wavelet_type}. Supported: {sorted(valid_wavelets)}")
         
-        # --- Nhánh Wavelet ---
-        self.w = nn.Parameter(torch.empty(in_features, num_wavelets))
-        nn.init.kaiming_uniform_(self.w, a=math.sqrt(5))
+        # --- CP-Factorization Tensors ---
+        # Loại bỏ trọng số w cũ (self.w)
+        # Khởi tạo 3 ma trận thành phần A, B, D cho phép phân rã CP
+        self.A = nn.Parameter(torch.empty(out_features, rank))
+        self.B = nn.Parameter(torch.empty(in_features, rank))
+        self.D = nn.Parameter(torch.empty(num_wavelets, rank))
+        
+        # Khởi tạo trọng số
+        nn.init.kaiming_uniform_(self.A, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.B, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.D, a=math.sqrt(5))
         
         if self.wavelet_type == 'morlet':
             self.register_buffer('omega0', torch.tensor(5.0))
@@ -26,19 +35,19 @@ class AdaptiveWaveletKANLayer(nn.Module):
         grid_min, grid_max = -grid_size, grid_size
 
         # Làm tròn lên cho Trend, phần còn lại cho Detail
-        num_trend = (num_wavelets + 1) // 2   # 7 -> 4
-        num_detail = num_wavelets - num_trend  # 7 -> 3
+        num_trend = (num_wavelets + 1) // 2   
+        num_detail = num_wavelets - num_trend  
 
         # --- Nhánh Trend: trải đều trên toàn miền ---
-        b_trend = torch.linspace(grid_min, grid_max, num_trend)  # [-3, -1, 1, 3]
-        step = (grid_max - grid_min) / (num_trend - 1)           # step = 2.0
-        a_trend = torch.ones(num_trend) * step * 0.8             # a = 2.0
+        b_trend = torch.linspace(grid_min, grid_max, num_trend)  
+        step = (grid_max - grid_min) / max(num_trend - 1, 1)           
+        a_trend = torch.ones(num_trend) * step * 0.8             
 
         # --- Nhánh Detail: so le (lấp đúng khe giữa các wavelet trend) ---
-        detail_min = grid_min + step / 2  # -3.0 + 1.0 = -2.0
-        detail_max = grid_max - step / 2  #  3.0 - 1.0 =  2.0
-        b_detail = torch.linspace(detail_min, detail_max, num_detail)  # [-2, 0, 2]
-        a_detail = torch.ones(num_detail) * step * 0.4                 # a = 1.0
+        detail_min = grid_min + step / 2  
+        detail_max = grid_max - step / 2  
+        b_detail = torch.linspace(detail_min, detail_max, num_detail)  
+        a_detail = torch.ones(num_detail) * step * 0.4                 
 
         # --- Tổng hợp Grid ---
         base_b = torch.cat([b_trend, b_detail], dim=0)
@@ -47,18 +56,12 @@ class AdaptiveWaveletKANLayer(nn.Module):
         base_a = torch.cat([a_trend, a_detail], dim=0)
         grid_a = base_a.unsqueeze(0).repeat(in_features, 1)
         
-        # Thử để nn.Parameter thay vì register_buffer để mạng tự fine-tune nhẹ lưới
-        # self.b = nn.Parameter(grid_b.view(1, 1, in_features, num_wavelets))
-        # self.a = nn.Parameter(grid_a.view(1, 1, in_features, num_wavelets))
         self.register_buffer('b', grid_b.view(1, 1, in_features, num_wavelets))
         self.register_buffer('a', grid_a.view(1, 1, in_features, num_wavelets))
 
     def _compute_wavelet_response(self, z):
         if self.wavelet_type == 'mexican_hat':
-            # coeff = 2.0 / (math.sqrt(3.0) * (math.pi ** 0.25))
-            # return coeff * (z**2 - 1.0) * torch.exp(-0.5 * z**2)
-            # return coeff * (z**2 - 1.0) * torch.exp(-0.5 * z**2)
-            return (1.0 - z**2) * torch.exp(-0.5 * z**2)  # Bỏ hệ số chuẩn hóa để tăng biên độ, giúp mạng dễ học hơn
+            return (1.0 - z**2) * torch.exp(-0.5 * z**2) 
 
         if self.wavelet_type == 'morlet':
             return torch.cos(self.omega0 * z) * torch.exp(-0.5 * z**2)
@@ -71,30 +74,34 @@ class AdaptiveWaveletKANLayer(nn.Module):
             return torch.sinc(z / math.pi) * window
 
     def forward(self, x):
-        # x input: [Batch, Seq, Channel] (Thực chất Channel ở đây là d_model = 16)
+        # x input: [Batch*Channel, Seq, in_features]
         
-        # Khởi tạo tensor output rỗng cùng kích thước với x
-        out = torch.zeros_like(x)
+        # --- VECTOR HÓA: Tính toán toàn bộ N wavelets cùng lúc ---
+        # Mở rộng chiều của x để trừ đi b: [B*C, Seq, in_features, 1]
+        x_expanded = x.unsqueeze(-1)
         
-        # Lấy trọng số w ra: [in_features, num_wavelets] (16, 8)
-        w = self.w 
+        # z: [B*C, Seq, in_features, num_wavelets]
+        z = (x_expanded - self.b) / (torch.abs(self.a) + 1e-6)
         
-        # Lặp qua từng wavelet (8 vòng lặp)
-        for k in range(self.num_wavelets):
-            # Lấy tâm b và độ giãn a của wavelet thứ k
-            b_k = self.b[0, 0, :, k] # shape: [in_features]
-            a_k = self.a[0, 0, :, k] # shape: [in_features]
-            
-            # Tính z cho riêng wavelet thứ k
-            # Kích thước tensor lúc này CHỈ LÀ [Batch*Channel, Seq, D_model] -> Giảm 8 lần RAM!
-            z_k = (x - b_k) / (torch.abs(a_k) + 1e-6)
-            
-            # Tính hàm kích hoạt phi tuyến cho sóng k
-            psi_k = self._compute_wavelet_response(z_k)
-            
-            # Nhân với trọng số w của wavelet thứ k và cộng dồn
-            # psi_k: [Batch*Channel, Seq, D_model]
-            # w[:, k]: [in_features] -> PyTorch tự động broadcast cho khớp
-            out += psi_k * w[:, k]
-            
+        # phi (hàm kích hoạt phi tuyến): [B*C, Seq, in_features, num_wavelets]
+        phi = self._compute_wavelet_response(z)
+        
+        # --- CP-FACTORIZATION: Thực hiện 3 bước thu gọn tensor (Contractions) ---
+        
+        # Bước 1: Thu gọn theo trục wavelet (num_wavelets) -> Tạo ra tensor U
+        # Tính toán: phi @ D -> MACs: d * N * R
+        # Hình dáng đầu ra: [B*C, Seq, in_features, rank]
+        U = torch.matmul(phi, self.D)
+        
+        # Bước 2: Thu gọn theo trục chiều ẩn (in_features) -> Tạo ra tensor v
+        # Nhân element-wise với ma trận B và tính tổng dọc theo trục in_features (dim=2)
+        # MACs: d * R
+        # Hình dáng đầu ra: [B*C, Seq, rank]
+        v = torch.sum(U * self.B, dim=2)
+        
+        # Bước 3: Thu gọn theo trục rank -> Tạo ra đầu ra cuối cùng
+        # Tính toán: v @ A^T -> MACs: d' * R
+        # Hình dáng đầu ra: [B*C, Seq, out_features]
+        out = torch.matmul(v, self.A.t())
+        
         return out

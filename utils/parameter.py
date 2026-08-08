@@ -43,13 +43,12 @@ COMMON_CONFIG = {
     "batch_size": BATCH_SIZE,
 }
 
-# Đã bổ sung "d_model": 32 cho ETTm2 để đồng bộ tính toán với TimeKAN
 DATASET_CONFIGS = [
-    {"data": "ETTh1", "model_id": "ETTh1", "e_layers": 2, "num_wavelets": 4, "kernel_size": 3},
-    {"data": "ETTh2", "model_id": "ETTh2", "e_layers": 3, "num_wavelets": 4, "kernel_size": 3},
-    {"data": "ETTm1", "model_id": "ETTm1", "e_layers": 2, "freq": "t", "num_wavelets": 4, "kernel_size": 7},
-    {"data": "ETTm2", "model_id": "ETTm2", "e_layers": 3, "freq": "t", "num_wavelets": 4, "grid_size": 4.0, "kernel_size": 7, "d_model": 32},
-    {"data": "weather", "model_id": "weather", "e_layers": 3, "freq": "t", "num_wavelets": 4, "kernel_size": 3, "enc_in": 21, "dec_in": 21, "c_out": 21}
+    {"data": "ETTh1", "model_id": "ETTh1", "e_layers": 2, "num_wavelets": 8, "kernel_size": 3},
+    {"data": "ETTh2", "model_id": "ETTh2", "e_layers": 2, "num_wavelets": 8, "kernel_size": 3},
+    {"data": "ETTm1", "model_id": "ETTm1", "e_layers": 2, "freq": "t", "num_wavelets": 8, "kernel_size": 7},
+    {"data": "ETTm2", "model_id": "ETTm2", "e_layers": 1, "freq": "t", "num_wavelets": 8, "kernel_size": 7},
+    {"data": "weather", "model_id": "weather", "e_layers": 3, "freq": "t", "num_wavelets": 8, "kernel_size": 3, "enc_in": 21, "dec_in": 21, "c_out": 21}
 ]
 
 class ProfileWrapper(nn.Module):
@@ -72,17 +71,22 @@ def _time_feature_dim(freq: str):
     if freq_key and freq_key[-1] in FREQ_TIME_DIM: return FREQ_TIME_DIM[freq_key[-1]]
     return FREQ_TIME_DIM["h"]
 
-def _build_dummy_x_mark(config):
+def _build_dummy_x_mark(config, seq_len):
+    """
+    Sử dụng torch.zeros thay cho torch.randn để đảm bảo khi đi qua các lớp
+    nn.Embedding bên trong TemporalEmbedding, giá trị 0 luôn là một index hợp lệ.
+    """
     if getattr(config, "embed", "timeF") == "timeF":
         time_dim = _time_feature_dim(config.freq)
-        return torch.randn(config.batch_size, config.seq_len, time_dim)
-    return torch.zeros(config.batch_size, config.seq_len, 5, dtype=torch.long)
+        return torch.zeros(config.batch_size, seq_len, time_dim)
+    return torch.zeros(config.batch_size, seq_len, 5, dtype=torch.long)
 
 def _profile_input_seq_len(config):
-    block_count = int(getattr(config, "e_layers", 1))
-    kernel_size = int(getattr(config, "kernel_size", 1))
-    shrink_per_block = max(kernel_size - 1, 0)
-    return int(config.seq_len + block_count * shrink_per_block)
+    """
+    Vì Conv1d trong CAW_KANBlock đã dùng padding=kernel_size//2,
+    chiều dài chuỗi được bảo toàn nên không cần bù trừ shrink_per_block nữa.
+    """
+    return int(config.seq_len)
 
 # =====================================================================
 # HÀM HOOK CUSTOM: LƯU TRỮ MACs TRÁNH BỊ THOP XÓA
@@ -93,10 +97,19 @@ def _store_macs(module, macs):
     module.stored_macs = getattr(module, "stored_macs", 0) + macs
 
 def count_adaptive_wavelet_kan(m, x, y):
-    x_in = x[0]
-    num_elements = x_in.numel() 
-    macs_per_element_per_wavelet = 4.5
-    total_macs = num_elements * m.num_wavelets * macs_per_element_per_wavelet
+    x_in = x[0] 
+    num_tokens = x_in.shape[0] * x_in.shape[1] 
+    
+    d = m.in_features
+    d_prime = m.out_features
+    N = m.num_wavelets
+    R = m.rank
+
+    macs_step1 = d * N * R
+    macs_step2 = d * R
+    macs_step3 = d_prime * R
+    
+    total_macs = num_tokens * (macs_step1 + macs_step2 + macs_step3)
     _store_macs(m, total_macs)
 
 def count_conv1d_custom(m, x, y):
@@ -130,10 +143,12 @@ def profile_one(config):
 
     wrapped_model = ProfileWrapper(model)
     profile_seq_len = _profile_input_seq_len(config)
+    
+    # Input x_enc vẫn có thể dùng randn vì nó là chuỗi thời gian thực
     dummy_x = torch.randn(config.batch_size, profile_seq_len, config.enc_in)
-    dummy_x_mark = _build_dummy_x_mark(config)
-    if dummy_x_mark.shape[1] != profile_seq_len:
-        dummy_x_mark = torch.randn(dummy_x_mark.shape[0], profile_seq_len, dummy_x_mark.shape[-1])
+    
+    # Khởi tạo x_mark_enc ngay từ đầu bằng hàm an toàn đã sửa và bỏ check len
+    dummy_x_mark = _build_dummy_x_mark(config, profile_seq_len)
         
     total_params = sum(p.numel() for p in model.parameters())
 

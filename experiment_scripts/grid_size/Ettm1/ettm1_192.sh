@@ -15,22 +15,23 @@ if [ ! -d "./logs/LongForecasting" ]; then
     mkdir ./logs/LongForecasting
 fi
 
+for grid_size in 1.5 3.0 4.5 6.0 7.5; do
+echo "grid_size=${grid_size}"
+
 # Chạy thử nghiệm CAW_KAN
 # Anti-overfit: giảm d_model, tăng dropout, thêm weight_decay, gradient clipping, cosine LR
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
-  --model_id ETTh2_96_336 \
+  --model_id ETTm1_96_192_grid_${grid_size} \
   --model $model_name \
-  --data ETTh2\
+  --data ETTm1\
   --root_path ./dataset/ETT-small/ \
-  --data_path ETTh2.csv \
+  --data_path ETTm1.csv \
   --features M \
-  --target OT \
-  --freq h \
-  --seq_len 512 \
+    --seq_len 512 \
   --label_len 0 \
-  --pred_len 336 \
+  --pred_len 192 \
   --enc_in 7 \
   --dec_in 7 \
   --c_out 7 \
@@ -51,6 +52,8 @@ python -u run.py \
   --lradj 'cosine' \
   --pct_start 0.2 \
   --wavelet_type $wavelet_type \
-    --num_wavelets $num_wavelets \
+  --num_wavelets $num_wavelets \
     --kernel_size $kernel_size \
-  --des Exp_CAW_KAN_researching
+  --grid_size $grid_size \
+  --des Exp_CAW_KAN_researching_grid_${grid_size}
+done
