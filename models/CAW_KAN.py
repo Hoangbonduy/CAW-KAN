@@ -13,7 +13,7 @@ class ContextAwareWavKANBlock(nn.Module):
     Tích hợp Conv1D để tạo ngữ cảnh (Context-Aware) trước khi đưa vào Wav-KAN.
     """
     def __init__(self, d_model, seq_len, dropout=0.1, num_wavelets=8, wavelet_type='mexican_hat', grid_size=3.0,
-                 kernel_size=7):
+                 kernel_size=7, rank=8):
         super().__init__()
         self.d_model = d_model
         
@@ -22,8 +22,15 @@ class ContextAwareWavKANBlock(nn.Module):
         self.context_conv = nn.Conv1d(d_model, d_model, kernel_size=kernel_size, padding=kernel_size // 2)
 
         # 2. Lõi Adaptive Wavelet KAN (Xử lý trực tiếp tín hiệu nguyên bản)
-        self.adaptive_kan = AdaptiveWaveletKANLayer(d_model, d_model, seq_len, num_wavelets=num_wavelets,
-                                                    wavelet_type=wavelet_type, grid_size=grid_size)
+        self.adaptive_kan = AdaptiveWaveletKANLayer(
+            d_model, 
+            d_model, 
+            seq_len, 
+            num_wavelets=num_wavelets,
+            wavelet_type=wavelet_type, 
+            grid_size=grid_size,
+            rank=rank 
+        )
         
         # 3. Residual & Normalization
         self.norm1 = nn.LayerNorm(d_model)
@@ -72,7 +79,8 @@ class Model(nn.Module):
                 num_wavelets=configs.num_wavelets,
                 wavelet_type=configs.wavelet_type,
                 grid_size=configs.grid_size,
-                kernel_size=self.kernel_size
+                kernel_size=self.kernel_size,
+                rank=configs.rank
             ) for _ in range(configs.e_layers)
         ])
         

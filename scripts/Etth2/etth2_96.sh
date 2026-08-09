@@ -53,4 +53,5 @@ python -u run.py \
   --wavelet_type $wavelet_type \
     --num_wavelets $num_wavelets \
     --kernel_size $kernel_size \
+  --rank $rank \
   --des Exp_CAW_KAN_researching

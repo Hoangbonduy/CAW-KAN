@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--grid_size', type=float, default=3.0, help='Grid size for wavelets (grid_min=-grid_size, grid_max=grid_size)')
     parser.add_argument('--kernel_size', type=int, default=7,
                         help='Conv1D kernel size for MS_JDKAN single context branch (default: 7)')
+    parser.add_argument('--rank', type=int, default=8, help='Rank for CP Factorization in AdaptiveWaveletKAN')
 
     # data loader
     parser.add_argument('--data', type=str, required=True, default='ETTh1', help='dataset type')
