@@ -45,16 +45,14 @@ class ContextAwareWavKANBlock(nn.Module):
         x_context = self.context_conv(x_context)
         x_context = x_context.transpose(1, 2)
 
-        x_context = self.norm1(x + x_context) # Residual connection 1
+        x_context = self.norm1(x + self.dropout(x_context)) # Residual connection 1
 
         # --- BƯỚC 2: Truyền trực tiếp vào Wav-KAN ---
         # Mạng sẽ tự động điều chỉnh scale/translation để bắt cả Trend và Spike
         kan_out = self.adaptive_kan(x_context)
-        
-        kan_out = self.dropout(kan_out)
 
         # --- BƯỚC 3: Tính Residual cho Block sau ---
-        next_x = self.norm2(x_context + kan_out) # Add & Norm
+        next_x = self.norm2(x_context + self.dropout(kan_out)) # Add & Norm
 
         return next_x
 

@@ -21,7 +21,7 @@ fi
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
-  --model_id ETTm1_96_96 \
+  --model_id ETTm1_512_96 \
   --model $model_name \
   --data ETTm1\
   --root_path ./dataset/ETT-small/ \

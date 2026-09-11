@@ -85,10 +85,10 @@ class TemporalEmbedding(nn.Module):
         x = x.long()
         minute_x = self.minute_embed(x[:, :, 4]) if hasattr(
             self, 'minute_embed') else 0.
-        hour_x = self.hour_embed(x[:, :, 3])
-        weekday_x = self.weekday_embed(x[:, :, 2])
-        day_x = self.day_embed(x[:, :, 1])
-        month_x = self.month_embed(x[:, :, 0])
+        month_x = self.month_embed(x[:, :, 0]) if x.size(2) > 0 else 0.
+        day_x = self.day_embed(x[:, :, 1]) if x.size(2) > 1 else 0.
+        weekday_x = self.weekday_embed(x[:, :, 2]) if x.size(2) > 2 else 0.
+        hour_x = self.hour_embed(x[:, :, 3]) if x.size(2) > 3 else 0.
 
         return hour_x + weekday_x + day_x + month_x + minute_x
 

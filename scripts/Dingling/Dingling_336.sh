@@ -1,9 +1,9 @@
 # Lấy đường dẫn gốc
 model_name=CAW_KAN
 wavelet_type=mexican_hat
-num_wavelets=12
+num_wavelets=8
 kernel_size=7
-rank=8
+rank=4
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -35,7 +35,7 @@ python -u run.py \
   --c_out 11 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 3 \
+  --e_layers 2 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \

@@ -2,9 +2,8 @@
 model_name=CAW_KAN
 wavelet_type=mexican_hat
 num_wavelets=8
-grid_size=3.0
 kernel_size=3
-rank=8
+rank=4
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -37,7 +36,7 @@ python -u run.py \
     --c_out 21 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 3 \
+  --e_layers 2 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \
@@ -53,7 +52,6 @@ python -u run.py \
   --pct_start 0.2 \
   --wavelet_type $wavelet_type \
   --num_wavelets $num_wavelets \
-  --grid_size $grid_size \
   --kernel_size $kernel_size \
   --rank $rank \
   --des Exp_CAW_KAN_researching

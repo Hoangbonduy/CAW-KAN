@@ -3,7 +3,7 @@ model_name=CAW_KAN
 wavelet_type=mexican_hat
 num_wavelets=8
 kernel_size=3
-rank=8
+rank=4
 
 # Ban đầu d_model = 32, d_ff = 64
 

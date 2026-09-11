@@ -1,5 +1,6 @@
 import argparse
 import os
+import statistics
 import torch
 import torch.backends
 from utils.print_args import print_args
@@ -8,11 +9,69 @@ from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 # from exp.exp_JDKAN import Exp_JDKAN  # Lazy import để tránh lỗi khi không dùng JDKAN
 import numpy as np
 
+
+def mean_std(values):
+    if not values:
+        raise ValueError('Cannot calculate statistics for an empty list')
+    if len(values) == 1:
+        return values[0], 0.0
+    return statistics.mean(values), statistics.stdev(values)
+
+
+def format_mean_std(values):
+    mean, std = mean_std(values)
+    return f'{mean:.6f} +- {std:.6f}'
+
+
+def set_global_seed(seed):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+
+
+def echo_seed_status(stage, run_seed, ii):
+    os.system(f'echo "[{stage}] itr={ii} seed={run_seed}"')
+
+
+def parse_seed_list(seed_text):
+    seeds = []
+    for item in seed_text.split(','):
+        item = item.strip()
+        if not item:
+            continue
+        seeds.append(int(item))
+    if not seeds:
+        raise ValueError('seed_list is empty. Example: 2021,2022,2023')
+    return seeds
+
+
+def build_setting(args, ii, run_seed):
+    return '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_seed{}_{}'.format(
+        args.task_name,
+        args.model_id,
+        args.model,
+        args.data,
+        args.features,
+        args.seq_len,
+        args.label_len,
+        args.pred_len,
+        args.d_model,
+        args.n_heads,
+        args.e_layers,
+        args.d_layers,
+        args.d_ff,
+        args.expand,
+        args.d_conv,
+        args.factor,
+        args.embed,
+        args.distil,
+        args.des,
+        run_seed,
+        ii,
+    )
+
 if __name__ == '__main__':
-    fix_seed = 2021
-    random.seed(fix_seed)
-    torch.manual_seed(fix_seed)
-    np.random.seed(fix_seed)
+    set_global_seed(2021)
 
     parser = argparse.ArgumentParser(description='TimesNet')
 
@@ -130,7 +189,15 @@ if __name__ == '__main__':
 
     # Augmentation
     parser.add_argument('--augmentation_ratio', type=int, default=0, help="How many times to augment")
-    parser.add_argument('--seed', type=int, default=2, help="Randomization seed")
+    parser.add_argument('--seed', type=int, default=2021, help="Randomization seed")
+
+    # Run 3 seeds
+    parser.add_argument('--run_three_seeds', action='store_true', default=False,
+                        help='run default seeds 2021,2022,2023 and report mean+-std (default: on)')
+    parser.add_argument('--no_run_three_seeds', action='store_false', dest='run_three_seeds',
+                        help='disable automatic 3-seed mode')
+    parser.add_argument('--seed_list', type=str, default='2021,2022,2023',
+                        help='comma-separated seeds used when run_three_seeds is enabled')
     parser.add_argument('--jitter', default=False, action="store_true", help="Jitter preset augmentation")
     parser.add_argument('--scaling', default=False, action="store_true", help="Scaling preset augmentation")
     parser.add_argument('--permutation', default=False, action="store_true",
@@ -191,73 +258,104 @@ if __name__ == '__main__':
     print('Args in experiment:')
     print_args(args)
 
+    seed_runs = parse_seed_list(args.seed_list) if args.run_three_seeds else [args.seed]
+    print('Seed schedule:', seed_runs)
+    os.system(f'echo "[SEED_SCHEDULE] {seed_runs}"')
+
 
     if args.task_name == 'long_term_forecast':
         Exp = Exp_Long_Term_Forecast 
 
     if args.is_training:
+        seed_metrics = {ii: {'mse': [], 'mae': []} for ii in range(args.itr)}
         for ii in range(args.itr):
-            # setting record of experiments
-            exp = Exp(args)  # set experiments
-            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
-                args.task_name,
-                args.model_id,
-                args.model,
-                args.data,
-                args.features,
-                args.seq_len,
-                args.label_len,
-                args.pred_len,
-                args.d_model,
-                args.n_heads,
-                args.e_layers,
-                args.d_layers,
-                args.d_ff,
-                args.expand,
-                args.d_conv,
-                args.factor,
-                args.embed,
-                args.distil,
-                args.des, ii)
+            for run_seed in seed_runs:
+                args.seed = run_seed
+                set_global_seed(run_seed)
+                echo_seed_status('TRAIN', run_seed, ii)
 
-            print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-            exp.train(setting)
+                # setting record of experiments
+                exp = Exp(args)  # set experiments
+                setting = build_setting(args, ii, run_seed)
+
+                print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+                exp.train(setting)
+
+                echo_seed_status('TEST', run_seed, ii)
+                print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                exp.test(setting)
+
+                metric_path = os.path.join('./results', setting, 'metrics.npy')
+                if os.path.exists(metric_path):
+                    metrics = np.load(metric_path)
+                    seed_metrics[ii]['mae'].append(float(metrics[0]))
+                    seed_metrics[ii]['mse'].append(float(metrics[1]))
+
+                if args.use_gpu:
+                    if args.gpu_type == 'mps':
+                        torch.backends.mps.empty_cache()
+                    elif args.gpu_type == 'cuda':
+                        torch.cuda.empty_cache()
+
+        if args.run_three_seeds:
+            summary_lines = []
+            print('\n========== 3-SEED SUMMARY (mean +- std) ==========' )
+            for ii in range(args.itr):
+                mse_values = seed_metrics[ii]['mse']
+                mae_values = seed_metrics[ii]['mae']
+                if len(mse_values) != len(seed_runs) or len(mae_values) != len(seed_runs):
+                    raise ValueError(
+                        f'Missing seed results at itr={ii}: mse={len(mse_values)}, mae={len(mae_values)}, expected={len(seed_runs)}'
+                    )
+
+                line = (
+                    f'itr={ii}, seeds={seed_runs}, '
+                    f'mse={format_mean_std(mse_values)}, '
+                    f'mae={format_mean_std(mae_values)}'
+                )
+                summary_lines.append(line)
+                print(line)
+
+            with open('result_long_term_forecast.txt', 'a') as f:
+                f.write('========== 3-SEED SUMMARY (mean +- std) ==========' + '\n')
+                for line in summary_lines:
+                    f.write(line + '\n')
+                f.write('\n')
+    else:
+        seed_metrics = {'mse': [], 'mae': []}
+        ii = 0
+        for run_seed in seed_runs:
+            args.seed = run_seed
+            set_global_seed(run_seed)
+            echo_seed_status('TEST_ONLY', run_seed, ii)
+
+            exp = Exp(args)  # set experiments
+            setting = build_setting(args, ii, run_seed)
 
             print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            exp.test(setting)
+            exp.test(setting, test=1)
+
+            metric_path = os.path.join('./results', setting, 'metrics.npy')
+            if os.path.exists(metric_path):
+                metrics = np.load(metric_path)
+                seed_metrics['mae'].append(float(metrics[0]))
+                seed_metrics['mse'].append(float(metrics[1]))
+
             if args.use_gpu:
                 if args.gpu_type == 'mps':
                     torch.backends.mps.empty_cache()
                 elif args.gpu_type == 'cuda':
                     torch.cuda.empty_cache()
-    else:
-        exp = Exp(args)  # set experiments
-        ii = 0
-        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
-            args.task_name,
-            args.model_id,
-            args.model,
-            args.data,
-            args.features,
-            args.seq_len,
-            args.label_len,
-            args.pred_len,
-            args.d_model,
-            args.n_heads,
-            args.e_layers,
-            args.d_layers,
-            args.d_ff,
-            args.expand,
-            args.d_conv,
-            args.factor,
-            args.embed,
-            args.distil,
-            args.des, ii)
 
-        print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        exp.test(setting, test=1)
-        if args.use_gpu:
-            if args.gpu_type == 'mps':
-                torch.backends.mps.empty_cache()
-            elif args.gpu_type == 'cuda':
-                torch.cuda.empty_cache()
+        if args.run_three_seeds:
+            if len(seed_metrics['mse']) != len(seed_runs) or len(seed_metrics['mae']) != len(seed_runs):
+                raise ValueError(
+                    f'Missing seed results in test mode: mse={len(seed_metrics["mse"])}, '
+                    f'mae={len(seed_metrics["mae"])}, expected={len(seed_runs)}'
+                )
+            print('\n========== 3-SEED SUMMARY (mean +- std) ==========' )
+            print(
+                f'seeds={seed_runs}, '
+                f'mse={format_mean_std(seed_metrics["mse"])}, '
+                f'mae={format_mean_std(seed_metrics["mae"])}'
+            )

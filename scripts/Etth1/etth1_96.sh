@@ -21,7 +21,7 @@ fi
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
-  --model_id ETTh1_96_96 \
+  --model_id ETTh1_512_96 \
   --model $model_name \
   --data ETTh1 \
   --root_path ./dataset/ETT-small/ \
@@ -37,7 +37,7 @@ python -u run.py \
   --c_out 7 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 2 \
+  --e_layers 3 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \

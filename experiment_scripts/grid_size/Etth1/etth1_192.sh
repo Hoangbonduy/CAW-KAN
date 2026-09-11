@@ -3,6 +3,8 @@ model_name=CAW_KAN
 wavelet_type=mexican_hat
 num_wavelets=8
 kernel_size=3
+rank=8
+
 # Tạo thư mục logs nếu chưa có
 if [ ! -d "./logs" ]; then
     mkdir ./logs
@@ -53,5 +55,6 @@ python -u run.py \
     --num_wavelets $num_wavelets \
   --kernel_size $kernel_size \
   --grid_size $grid_size \
+  --rank $rank \
   --des Exp_CAW_KAN_researching_grid_${grid_size}
 done

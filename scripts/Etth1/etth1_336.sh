@@ -35,7 +35,7 @@ python -u run.py \
   --c_out 7 \
   --d_model 16 \
   --n_heads 4 \
-  --e_layers 2 \
+  --e_layers 3 \
   --d_layers 1 \
   --d_ff 32 \
   --factor 1 \

@@ -39,16 +39,17 @@ COMMON_CONFIG = {
     "dropout": 0.1,
     "wavelet_type": "mexican_hat",
     "grid_size": 3.0,
+    "rank": 8,
     "channel_independence": 1,
     "batch_size": BATCH_SIZE,
 }
 
 DATASET_CONFIGS = [
-    {"data": "ETTh1", "model_id": "ETTh1", "e_layers": 2, "num_wavelets": 8, "kernel_size": 3},
-    {"data": "ETTh2", "model_id": "ETTh2", "e_layers": 2, "num_wavelets": 8, "kernel_size": 3},
-    {"data": "ETTm1", "model_id": "ETTm1", "e_layers": 2, "freq": "t", "num_wavelets": 8, "kernel_size": 7},
-    {"data": "ETTm2", "model_id": "ETTm2", "e_layers": 1, "freq": "t", "num_wavelets": 8, "kernel_size": 7},
-    {"data": "weather", "model_id": "weather", "e_layers": 3, "freq": "t", "num_wavelets": 8, "kernel_size": 3, "enc_in": 21, "dec_in": 21, "c_out": 21}
+    {"data": "ETTh1", "model_id": "ETTh1", "e_layers": 2, "num_wavelets": 8, "kernel_size": 3, "rank": 8},
+    {"data": "ETTh2", "model_id": "ETTh2", "e_layers": 2, "num_wavelets": 8, "kernel_size": 7, "rank": 8},
+    {"data": "ETTm1", "model_id": "ETTm1", "e_layers": 2, "freq": "t", "num_wavelets": 8, "kernel_size": 7, "rank": 8},
+    {"data": "ETTm2", "model_id": "ETTm2", "e_layers": 2, "freq": "t", "num_wavelets": 8, "kernel_size": 7, "rank": 8},
+    {"data": "weather", "model_id": "weather", "e_layers": 2, "freq": "t", "num_wavelets": 8, "kernel_size": 3, "rank": 4, "enc_in": 21, "dec_in": 21, "c_out": 21}
 ]
 
 class ProfileWrapper(nn.Module):

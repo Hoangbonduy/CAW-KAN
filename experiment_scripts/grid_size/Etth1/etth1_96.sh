@@ -3,6 +3,7 @@ model_name=CAW_KAN
 wavelet_type=mexican_hat
 num_wavelets=8
 kernel_size=3
+rank=8
 
 # Ban đầu d_model = 32, d_ff = 64
 
@@ -52,5 +53,6 @@ for grid_size in 1.5 3.0 4.5 6.0 7.5; do
     --num_wavelets $num_wavelets \
     --kernel_size $kernel_size \
     --grid_size $grid_size \
+    --rank $rank \
     --des Exp_CAW_KAN_researching_grid_${grid_size}
 done

@@ -1,7 +1,7 @@
 # Lấy đường dẫn gốc
 model_name=CAW_KAN
 wavelet_type=mexican_hat
-num_wavelets=12
+num_wavelets=8
 kernel_size=7
 rank=8
 
