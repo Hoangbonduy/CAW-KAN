@@ -1,4 +1,4 @@
-## Cài đặt môi trường
+## Requirements
 
 ```bash
 cd CAW-KAN
@@ -7,11 +7,11 @@ conda activate cawkan
 pip install -r requirements.txt
 ```
 
-## Dataset
+## Data Preparation
 
-Dataset lấy từ [Autoformer](https://drive.google.com/drive/folders/1ZOYpTUa82_jCcxIdTmyr0LXQfvaM9vIy).
+We use the datasets provided by the [Autoformer](https://drive.google.com/drive/folders/1ZOYpTUa82_jCcxIdTmyr0LXQfvaM9vIy) repository for our experiments. 
 
-Sau khi tải xong, đặt dữ liệu vào thư mục `dataset` của project.
+Once you have downloaded the datasets, please create a `dataset` folder in the root directory of the project and put all the data files inside it.
 
 ## Chạy các dữ liệu
 

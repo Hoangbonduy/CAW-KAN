@@ -146,6 +146,7 @@ dmypy.json
 
 /scripts/long_term_forecast/ETT_tv_script/
 /dataset/
+/experiment_figures/
 /debug_plots/
 /data/
 /test_code/
