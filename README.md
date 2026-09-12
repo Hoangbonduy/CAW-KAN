@@ -48,3 +48,9 @@ Once you have downloaded the datasets, please create a `dataset` folder in the r
   ```
 - **Different Structural Results:** To test different architectures, replace the original files in the `models/` or `layers/` directories with the corresponding variants from `Architectural components/` or `Grid & Factorization/`, and then run the execution scripts as shown above.
 - **Loss Function Variation:** You can change the loss function for appropriate scenarios by modifying the `_select_criterion` method in the experimental scripts.
+
+# Acknowledgements
+
+We appreciate the following github repositories provided valuable code bases and datasets for our work:
+- [Time-Series-Library](https://github.com/thuml/Time-Series-Library)
+- [Wav-KAN](https://github.com/zavareh1/Wav-KAN)
