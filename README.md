@@ -27,13 +27,13 @@ Once you have downloaded the datasets, please create a `dataset` folder in the r
   - `WaveletKAN_Dual_grid.py`: Full tensor with a dual-grid, no CP factorization applied.
   - `WaveletKAN_Single_grid.py`: Full tensor with a single-grid, no CP factorization applied.
   - `WaveletKAN_Single_grid_CP.py`: Single-grid with CP factorization.
-- **`exp/`**: Contains the classes responsible for handling the training and evaluation processes (e.g., `exp_long_term_forecasting.py`).
+- **`exp/`**: Contains the classes responsible for handling the training and evaluation processes.
 - **`scripts/`**: Contains execution scripts to run the model on various datasets for different prediction lengths (`pred_len` of 96, 192, 336, and 720).
 - **`experiment_scripts/`**: Contains scripts for parameter sensitivity analysis and ablation studies. Specifically, it includes:
   - `grid_size`: Analyzes the `grid_size` parameter with values in [1.5, 3.0, 4.5, 6.0, 7.5].
   - `kernel_size`: Analyzes the `kernel_size` parameter in the Conv1D layer with values in [1, 3, 7, 15].
   - `num_blocks`: Analyzes the `num_blocks` (number of blocks) parameter with values in [1, 2, 3, 4].
-  - `num_wavelets_test`: Analyzes the number of wavelets parameter with values in [4, 6, 8, 10, 12].
+  - `num_wavelets`: Analyzes the number of wavelets parameter with values in [4, 6, 8, 10, 12].
   - `wavelets_type`: Analyzes different wavelet types, including Mexican_hat, DoG, and Morlet.
 
 ## Reproducing Results
@@ -47,7 +47,7 @@ Once you have downloaded the datasets, please create a `dataset` folder in the r
   bash experiment_scripts/kernel_size/Etth1/etth1_96.sh
   ```
 - **Different Structural Results:** To test different architectures, replace the original files in the `models/` or `layers/` directories with the corresponding variants from `model components/` or `layer components/`, and then run the execution scripts as shown above.
-- **Loss Function Variation:** You can change the loss function for appropriate scenarios by modifying the `_select_criterion` method in the experimental scripts.
+- **Loss Function Variation:** You can change the loss function for appropriate scenarios by modifying the `_select_criterion` method in the `exp/exp_long_term_forecasting/`.
 
 ## Acknowledgements
 
